@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quiz Game</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+
+        .quiz-container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+
+        .option {
+            display: block;
+            padding: 10px;
+            margin: 8px 0;
+            background-color: #f0f0f0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .option:hover {
+            background-color: #e0e0e0;
+        }
+
+        .selected { background-color: #d0d0ff; }
+        .correct { background-color: #d0ffd0; }
+        .incorrect { background-color: #ffd0d0; }
+
+        .button {
+            padding: 8px 16px;
+            background-color: #4a4aff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-top: 10px;
+        }
+
+        .button:hover { background-color: #3a3aee; }
+        .button:disabled { background-color: #cccccc; cursor: not-allowed; }
+
+        .feedback {
+            margin-top: 10px;
+            padding: 8px;
+            border-radius: 4px;
+            display: none;
+        }
+
+        .correct-feedback { background-color: #e0ffe0; }
+        .incorrect-feedback { background-color: #ffe0e0; }
+
+        .score-container, .progress-container {
+            margin-bottom: 15px;
+        }
+
+        .progress-bar {
+            background-color: #eee;
+            height: 15px;
+            border-radius: 8px;
+            overflow: hidden;
+            margin-top: 5px;
+        }
+
+        .progress {
+            background-color: #4a4aff;
+            height: 100%;
+            width: 0%;
+            transition: width 0.5s ease;
+        }
+
+        .result-container {
+            text-align: center;
+            display: none;
+        }
+
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="quiz-container">
+        <h1>Quiz Game</h1>
+        
+        <!-- Start Screen -->
+        <div id="start-screen">
+            <p>Test your knowledge with these questions!</p>
+            <button id="start-button" class="button">Start Quiz</button>
+        </div>
+        
+        <!-- Quiz Content -->
+        <div id="quiz-content" class="hidden">
+            <div class="score-container">Score: <span id="score">0</span></div>
+            
+            <div class="progress-container">
+                Question <span id="current-question">1</span> of <span id="total-questions">5</span>
+                <div class="progress-bar"><div id="progress" class="progress"></div></div>
+            </div>
+            
+            <h2 id="question-text"></h2>
+            <div id="options-container"></div>
+            <div class="feedback" id="feedback"></div>
+            <button id="next-button" class="button" disabled>Next Question</button>
+        </div>
+        
+        <!-- Results Screen -->
+        <div id="result-container" class="result-container">
+            <h2>Quiz Completed!</h2>
+            <p>You scored <span id="final-score">0</span> out of <span id="max-score">5</span>!</p>
+            <p id="result-message"></p>
+            <button id="restart-button" class="button">Restart Quiz</button>
+        </div>
+    </div>
+
+    <script>
+        // Quiz questions
+        const quizQuestions = [
+            {
+                question: "What is the capital of France?",
+                options: ["London", "Berlin", "Paris", "Madrid"],
+                answer: 2
+            },
+            {
+                question: "Which planet is known as the Red Planet?",
+                options: ["Venus", "Mars", "Jupiter", "Saturn"],
+                answer: 1
+            },
+            {
+                question: "What is the largest ocean on Earth?",
+                options: ["Atlantic Ocean", "Indian Ocean", "Arctic Ocean", "Pacific Ocean"],
+                answer: 3
+            },
+            {
+                question: "Who wrote 'Romeo and Juliet'?",
+                options: ["Charles Dickens", "William Shakespeare", "Jane Austen", "Mark Twain"],
+                answer: 1
+            },
+            {
+                question: "What is the chemical symbol for gold?",
+                options: ["Go", "Gl", "Au", "Ag"],
+                answer: 2
+            }
+        ];
+
+        // Quiz state
+        let currentQuestion = 0;
+        let score = 0;
+        let answered = false;
+
+        // DOM elements
+        const startScreen = document.getElementById('start-screen');
+        const quizContent = document.getElementById('quiz-content');
+        const resultContainer = document.getElementById('result-container');
+        const questionText = document.getElementById('question-text');
+        const optionsContainer = document.getElementById('options-container');
+        const feedbackElement = document.getElementById('feedback');
+        const nextButton = document.getElementById('next-button');
+        const scoreElement = document.getElementById('score');
+        const currentQuestionElement = document.getElementById('current-question');
+        const totalQuestionsElement = document.getElementById('total-questions');
+        const progressBar = document.getElementById('progress');
+        const finalScoreElement = document.getElementById('final-score');
+        const maxScoreElement = document.getElementById('max-score');
+        const resultMessageElement = document.getElementById('result-message');
+
+        // Buttons
+        const startButton = document.getElementById('start-button');
+        const restartButton = document.getElementById('restart-button');
+
+        // Event listeners
+        startButton.addEventListener('click', startQuiz);
+        nextButton.addEventListener('click', goToNextQuestion);
+        restartButton.addEventListener('click', restartQuiz);
+
+        // Initialize quiz
+        totalQuestionsElement.textContent = quizQuestions.length;
+        maxScoreElement.textContent = quizQuestions.length;
+
+        // Start the quiz
+        function startQuiz() {
+            startScreen.classList.add('hidden');
+            quizContent.classList.remove('hidden');
+            resultContainer.style.display = 'none';
+            loadQuestion();
+        }
+
+        // Load a question
+        function loadQuestion() {
+            // Update progress
+            currentQuestionElement.textContent = currentQuestion + 1;
+            progressBar.style.width = `${((currentQuestion + 1) / quizQuestions.length) * 100}%`;
+            
+            // Reset state
+            answered = false;
+            nextButton.disabled = true;
+            feedbackElement.style.display = 'none';
+            
+            // Load question
+            const question = quizQuestions[currentQuestion];
+            questionText.textContent = question.question;
+            
+            // Clear and load options
+            optionsContainer.innerHTML = '';
+            question.options.forEach((option, index) => {
+                const optionElement = document.createElement('div');
+                optionElement.className = 'option';
+                optionElement.textContent = option;
+                optionElement.dataset.index = index;
+                optionElement.addEventListener('click', selectOption);
+                optionsContainer.appendChild(optionElement);
+            });
+        }
+
+        // Handle option selection
+        function selectOption(event) {
+            if (answered) return;
+            
+            const selectedIndex = parseInt(event.target.dataset.index);
+            answered = true;
+            
+            // Highlight selected option
+            const options = document.querySelectorAll('.option');
+            options.forEach(option => option.classList.remove('selected'));
+            event.target.classList.add('selected');
+            
+            // Check if answer is correct
+            const question = quizQuestions[currentQuestion];
+            if (selectedIndex === question.answer) {
+                // Correct answer
+                event.target.classList.add('correct');
+                feedbackElement.textContent = "Correct!";
+                feedbackElement.className = 'feedback correct-feedback';
+                score++;
+                scoreElement.textContent = score;
+            } else {
+                // Incorrect answer
+                event.target.classList.add('incorrect');
+                options[question.answer].classList.add('correct');
+                feedbackElement.textContent = "Incorrect.";
+                feedbackElement.className = 'feedback incorrect-feedback';
+            }
+            
+            feedbackElement.style.display = 'block';
+            nextButton.disabled = false;
+        }
+
+        // Go to next question
+        function goToNextQuestion() {
+            currentQuestion++;
+            
+            if (currentQuestion < quizQuestions.length) {
+                loadQuestion();
+            } else {
+                showResults();
+            }
+        }
+
+        // Show final results
+        function showResults() {
+            quizContent.classList.add('hidden');
+            resultContainer.style.display = 'block';
+            finalScoreElement.textContent = score;
+            
+            // Result message based on score
+            const percentage = (score / quizQuestions.length) * 100;
+            if (percentage >= 80) {
+                resultMessageElement.textContent = "Excellent! You're a quiz master!";
+            } else if (percentage >= 60) {
+                resultMessageElement.textContent = "Good job!";
+            } else if (percentage >= 40) {
+                resultMessageElement.textContent = "Not bad!";
+            } else {
+                resultMessageElement.textContent = "Try again!";
+            }
+        }
+
+        // Restart the quiz
+        function restartQuiz() {
+            currentQuestion = 0;
+            score = 0;
+            scoreElement.textContent = score;
+            startQuiz();
+        }
+    </script>
+</body>
+</html>
